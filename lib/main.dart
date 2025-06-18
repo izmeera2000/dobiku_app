@@ -242,13 +242,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      // Register the user
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+
+      // Get the user ID
+      String uid = userCredential.user!.uid;
+
+      // Add user info to Firestore
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'email': email,
+        'role': 'user',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Pendaftaran berjaya!")));
+
       Navigator.pop(context); // Kembali ke SignInScreen
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -362,94 +373,130 @@ class HomeScreen extends StatelessWidget {
 
   const HomeScreen({super.key, required this.email});
 
+  Future<String> _getUserRole() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (doc.exists && doc.data()!.containsKey('role')) {
+        return doc['role'];
+      }
+    }
+    return 'user'; // Default role if not found
+  }
+
   Future<void> _onRefresh() async {
     await Future.delayed(Duration(seconds: 1));
     print("Data refreshed!");
-    // Anda boleh letak logic Firebase atau setState di sini jika mahu
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey,
-      appBar: AppBar(
-        title: Text(
-          "Welcome, $email!",
-          style: GoogleFonts.poppins(fontSize: 20),
-        ),
-        backgroundColor: Colors.deepPurpleAccent,
-        elevation: 0,
-      ),
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        child: ListView(
-          padding: EdgeInsets.all(16),
-          children: [
-            ValueListenableBuilder<String>(
-              valueListenable: selectedLanguageNotifier,
-              builder: (context, selectedLanguage, _) {
-                return Text(
-                  selectedLanguage == "Malay" ? "Perkhidmatan" : "Services",
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              },
+    return FutureBuilder<String>(
+      future: _getUserRole(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // Default to 'user' if error or no data
+        final role = snapshot.data ?? 'user';
+
+        return Scaffold(
+          backgroundColor: Colors.grey,
+          appBar: AppBar(
+            title: Text(
+              "Welcome, $email!",
+              style: GoogleFonts.poppins(fontSize: 18),
             ),
-            SizedBox(height: 10),
-            GridView.count(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+            backgroundColor: Colors.deepPurpleAccent,
+            elevation: 0,
+          ),
+          body: RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: ListView(
+              padding: EdgeInsets.all(16),
               children: [
-                _buildServiceTile(
-                  Icons.delivery_dining,
-                  "Clothes pick up",
-                  context,
+                ValueListenableBuilder<String>(
+                  valueListenable: selectedLanguageNotifier,
+                  builder: (context, selectedLanguage, _) {
+                    return Text(
+                      selectedLanguage == "Malay" ? "Perkhidmatan" : "Services",
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  },
                 ),
-                _buildServiceTile(Icons.payment, "DobiPay", context),
+                SizedBox(height: 10),
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  children: [
+                    _buildServiceTile(
+                      Icons.delivery_dining,
+                      "Clothes pick up",
+                      context,
+                    ),
+                    _buildServiceTile(Icons.payment, "DobiPay", context),
+                    if (role == "admin")
+                      _buildServiceTile(
+                        Icons.admin_panel_settings,
+                        "Admin Panel",
+                        context,
+                      ),
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          if (index == 1) {
-            Navigator.push(
-              context,
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    Profile(),
-                transitionsBuilder:
-                    (context, animation, secondaryAnimation, child) {
-                      const begin = Offset(1.0, 0.0);
-                      const end = Offset.zero;
-                      const curve = Curves.ease;
+          ),
+          bottomNavigationBar: BottomNavigationBar(
+            selectedItemColor: Colors.green,
+            unselectedItemColor: Colors.grey,
+            onTap: (index) {
+              if (index == 1) {
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        Profile(),
+                    transitionsBuilder:
+                        (context, animation, secondaryAnimation, child) {
+                          const begin = Offset(1.0, 0.0);
+                          const end = Offset.zero;
+                          const curve = Curves.ease;
 
-                      var tween = Tween(
-                        begin: begin,
-                        end: end,
-                      ).chain(CurveTween(curve: curve));
-                      return SlideTransition(
-                        position: animation.drive(tween),
-                        child: child,
-                      );
-                    },
+                          var tween = Tween(
+                            begin: begin,
+                            end: end,
+                          ).chain(CurveTween(curve: curve));
+                          return SlideTransition(
+                            position: animation.drive(tween),
+                            child: child,
+                          );
+                        },
+                  ),
+                );
+              }
+            },
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person),
+                label: "Profile",
               ),
-            );
-          }
-        },
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -466,6 +513,11 @@ class HomeScreen extends StatelessWidget {
             context,
             MaterialPageRoute(builder: (_) => DobiPayScreen()),
           );
+        } else if (title == "Admin Panel") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => OrderListScreen()),
+          );
         }
       },
       child: Card(
@@ -479,6 +531,89 @@ class HomeScreen extends StatelessWidget {
             Text(title, style: GoogleFonts.poppins(fontSize: 16)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class OrderListScreen extends StatelessWidget {
+  const OrderListScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Orders List"),
+        backgroundColor: Colors.deepPurpleAccent,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('orders')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("No orders found."));
+          }
+
+          final orders = snapshot.data!.docs;
+
+          return ListView.builder(
+            itemCount: orders.length,
+            itemBuilder: (context, index) {
+              final order = orders[index].data() as Map<String, dynamic>;
+
+              final int basketCount = order['basketCount'] ?? 0;
+              final double basketPrice = (order['basketPrice'] ?? 0).toDouble();
+              final double totalPrice = (order['totalPrice'] ?? 0).toDouble();
+              final Timestamp timestamp = order['createdAt'];
+              final DateTime createdAt = timestamp.toDate();
+
+              final String pickupName = order['pickupName'] ?? '-';
+              final String pickupPhone = order['pickupPhone'] ?? '-';
+              final String pickupAddress = order['pickupAddress'] ?? '-';
+              final String laundryOption = order['laundryOption'] ?? '-';
+              final String laundryName = order['laundryName'] ?? '-';
+              final String paymentMethod = order['paymentMethod'] ?? '-';
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.shopping_basket,
+                    color: Colors.green,
+                    size: 40,
+                  ),
+                  title: Text("Basket Count: $basketCount"),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Basket Price: RM ${basketPrice.toStringAsFixed(2)}",
+                      ),
+                      Text("Total Price: RM ${totalPrice.toStringAsFixed(2)}"),
+                      Text(
+                        "Created At: ${DateFormat.yMMMd().add_jm().format(createdAt)}",
+                      ),
+                      const SizedBox(height: 8),
+                      Text("Pickup Name: $pickupName"),
+                      Text("Pickup Phone: $pickupPhone"),
+                      Text("Pickup Address: $pickupAddress"),
+                      Text("Laundry Option: $laundryOption"),
+                      Text("Laundry Name: $laundryName"),
+                      Text("Payment Method: $paymentMethod"),
+                    ],
+                  ),
+                  isThreeLine: true,
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -630,7 +765,14 @@ class _ClothesPickUpScreenState extends State<ClothesPickUpScreen> {
 
             const SizedBox(height: 20),
             _buildSectionTitle("Laundry Basket"),
-            LaundryBasketSection(),
+            LaundryBasketSection(
+              pickupName: pickupName,
+              pickupPhone: pickupPhone,
+              pickupAddress: pickupAddress,
+              paymentMethod: selectedPaymentMethod,
+              laundryOption: selectedLaundryOption,
+              laundryName: selectedLaundryName,
+            ),
           ],
         ),
       ),
@@ -1078,7 +1220,22 @@ class LaundryOptionsPage extends StatelessWidget {
 }
 
 class LaundryBasketSection extends StatefulWidget {
-  const LaundryBasketSection({super.key});
+  final String? pickupName;
+  final String? pickupPhone;
+  final String? pickupAddress;
+  final String? paymentMethod;
+  final String? laundryOption;
+  final String? laundryName;
+
+  const LaundryBasketSection({
+    super.key,
+    this.pickupName,
+    this.pickupPhone,
+    this.pickupAddress,
+    this.paymentMethod,
+    this.laundryOption,
+    this.laundryName,
+  });
 
   @override
   State<LaundryBasketSection> createState() => _LaundryBasketSectionState();
@@ -1099,16 +1256,38 @@ class _LaundryBasketSectionState extends State<LaundryBasketSection> {
   }
 
   void _submitOrder() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Check address
+    if (widget.pickupAddress == null ||
+        widget.pickupName == null ||
+        widget.pickupPhone == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Sila tambah alamat dahulu.")),
+      );
+      return;
+    }
+
+    final orderData = {
+      'userId': user.uid,
+      'basketCount': basketCount,
+      'basketPrice': basketPrice,
+      'totalPrice': totalPrice,
+      'pickupName': widget.pickupName,
+      'pickupPhone': widget.pickupPhone,
+      'pickupAddress': widget.pickupAddress,
+      'paymentMethod': widget.paymentMethod,
+      'laundryOption': widget.laundryOption,
+      'laundryName': widget.laundryName,
+      'createdAt': Timestamp.now(),
+    };
+
     try {
-      await FirebaseFirestore.instance.collection('orders').add({
-        'basketCount': basketCount,
-        'basketPrice': basketPrice,
-        'totalPrice': totalPrice,
-        'createdAt': Timestamp.now(),
-      });
+      await FirebaseFirestore.instance.collection('orders').add(orderData);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Pesanan berjaya dihantar ke Firebase")),
+        const SnackBar(content: Text("Pesanan berjaya dihantar ke Firebase")),
       );
     } catch (e) {
       ScaffoldMessenger.of(
