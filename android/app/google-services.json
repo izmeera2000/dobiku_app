@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "220005612030",
+    "project_id": "dobiku-app-1b86f",
+    "storage_bucket": "dobiku-app-1b86f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:220005612030:android:4816f0a0a75a94a85f28af",
+        "android_client_info": {
+          "package_name": "com.example.dobiku"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYZWsdMnoKPIQXxvVqTNqUUEzRRe5f5Qo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:220005612030:android:113e355a403f7bcb5f28af",
+        "android_client_info": {
+          "package_name": "com.example.dobiku_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYZWsdMnoKPIQXxvVqTNqUUEzRRe5f5Qo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

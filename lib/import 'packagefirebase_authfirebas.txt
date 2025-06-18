@@ -1,0 +1,1173 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(DobikuApp());
+}
+
+class DobikuApp extends StatelessWidget {
+  static final ValueNotifier<bool> isDarkMode = ValueNotifier<bool>(false);
+
+  const DobikuApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: isDarkMode,
+      builder: (context, isDark, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData.light(),
+          darkTheme: ThemeData.dark(),
+          themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+          home: const SignUpScreen(),
+        );
+      },
+    );
+  }
+}
+
+class SignUpScreen extends StatefulWidget {
+  const SignUpScreen({super.key});
+
+  @override
+  _SignUpScreenState createState() => _SignUpScreenState();
+}
+
+class _SignUpScreenState extends State<SignUpScreen> {
+  final TextEditingController _emailController = TextEditingController();
+
+  void _goToHomeScreen() {
+    String email = _emailController.text.trim();
+    if (email.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen(email: email)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter a valid email")),
+      );
+    }
+  }
+
+  void _goToGoogleSignUpScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const GoogleSignUpScreen()),
+    );
+  }
+
+  void _goToForgotPasswordScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+    );
+  }
+
+  void _goToLoginScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              "Dobiku",
+              style: GoogleFonts.poppins(
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text("Login", style: GoogleFonts.poppins(fontSize: 20)),
+            const SizedBox(height: 10),
+            Text(
+              "Enter your email to sign up for this app",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                hintText: "Enter Your Email",
+                filled: true,
+                fillColor: Colors.grey[200],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _goToHomeScreen,
+              child: const Text("Continue"),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _goToGoogleSignUpScreen,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text("Register"),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _goToLoginScreen,
+              child: const Text("Login"),
+            ),
+            TextButton(
+              onPressed: _goToForgotPasswordScreen,
+              child: const Text("Forgot Password?"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class GoogleSignUpScreen extends StatefulWidget {
+  const GoogleSignUpScreen({super.key});
+
+  @override
+  _GoogleSignUpScreenState createState() => _GoogleSignUpScreenState();
+}
+
+class _GoogleSignUpScreenState extends State<GoogleSignUpScreen> {
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  void _handleGoogleSignIn() async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser != null) {
+        String email = googleUser.email;
+        _emailController.text = email;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Google Sign-In Successful: $email")),
+        );
+      }
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Google Sign-In Failed! Try again.")),
+      );
+    }
+  }
+
+  void _signUpWithEmail() async {
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Email and password cannot be empty")),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Signup Successful!")));
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Signup Failed: ${e.toString()}")));
+    }
+  }
+
+  void _resetPassword() async {
+    String email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please enter your email")));
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Password reset email sent!")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to send reset email: ${e.toString()}")),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Sign Up")),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "You've signed up with DobiKu!",
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "Enter your email and password or sign up with Google.",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
+            const SizedBox(height: 30),
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: "Email",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: "Password",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _signUpWithEmail,
+              child: const Text("Sign Up with Email"),
+            ),
+            TextButton(
+              onPressed: _resetPassword,
+              child: const Text("Forgot Password?"),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _handleGoogleSignIn,
+              icon: const Icon(Icons.login),
+              label: const Text("Sign Up with Google"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ForgotPasswordScreen extends StatelessWidget {
+  const ForgotPasswordScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final TextEditingController emailController = TextEditingController();
+
+    void sendPasswordReset() async {
+      final email = emailController.text.trim();
+      if (email.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please enter your email")),
+        );
+        return;
+      }
+
+      try {
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Password reset email sent!")),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+      }
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Forgot Password")),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "Reset your password",
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: "Email",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: sendPasswordReset,
+              child: const Text("Send Reset Email"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  _LoginScreenState createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  void _loginUser() async {
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Email dan kata laluan diperlukan")),
+      );
+      return;
+    }
+
+    try {
+      final signInMethods = await FirebaseAuth.instance
+          .fetchSignInMethodsForEmail(email);
+      if (signInMethods.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Akaun tidak dijumpai. Sila daftar dahulu."),
+          ),
+        );
+        return;
+      }
+
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen(email: email)),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Login gagal: ${e.toString()}")));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Login")),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "Login ke Akaun Anda",
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: "Email",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: "Kata Laluan",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: _loginUser, child: const Text("Login")),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatelessWidget {
+  final String email;
+
+  const HomeScreen({super.key, required this.email});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey,
+      appBar: AppBar(
+        title: Text(
+          "Welcome, $email!",
+          style: GoogleFonts.poppins(fontSize: 20),
+        ),
+        backgroundColor: Colors.deepPurpleAccent,
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Services",
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 10),
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                children: [
+                  _buildServiceTile(
+                    Icons.delivery_dining,
+                    "Clothes pick up",
+                    context,
+                  ),
+                  _buildServiceTile(Icons.payment, "DobiPay", context),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        selectedItemColor: Colors.green,
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    Profile(),
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                      const begin = Offset(1.0, 0.0);
+                      const end = Offset.zero;
+                      const curve = Curves.ease;
+
+                      var tween = Tween(
+                        begin: begin,
+                        end: end,
+                      ).chain(CurveTween(curve: curve));
+
+                      return SlideTransition(
+                        position: animation.drive(tween),
+                        child: child,
+                      );
+                    },
+              ),
+            );
+          }
+        },
+        items: [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceTile(IconData icon, String title, BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        if (title == "Clothes pick up") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ClothesPickUpScreen()),
+          );
+        } else if (title == "DobiPay") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => DobiPayScreen()),
+          );
+        }
+      },
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 40, color: Colors.green),
+            SizedBox(height: 10),
+            Text(title, style: GoogleFonts.poppins(fontSize: 16)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ClothesPickUpScreen extends StatefulWidget {
+  const ClothesPickUpScreen({super.key});
+
+  @override
+  _ClothesPickUpScreenState createState() => _ClothesPickUpScreenState();
+}
+
+class _ClothesPickUpScreenState extends State<ClothesPickUpScreen> {
+  int laundryBagCount = 1;
+  double laundryBagPrice = 7.85;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "Clothes Pick-Up",
+          style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.deepPurpleAccent,
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionTitle("Pickup Address"),
+              _buildInfoCard(
+                "Add Address",
+                Icons.location_on,
+                context,
+                AddAddressPage(),
+              ),
+
+              _buildSectionTitle("Delivery"),
+              _buildInfoCard(
+                "Dobi Nearby",
+                Icons.local_shipping,
+                context,
+                DeliveryPage(),
+              ),
+
+              _buildSectionTitle("Payment"),
+              _buildInfoCard(
+                "Visa ending in *1234",
+                Icons.payment,
+                context,
+                PaymentPage(),
+              ),
+
+              _buildSectionTitle("Laundry Options"),
+              _buildInfoCard(
+                "Choose",
+                Icons.card_giftcard,
+                context,
+                LaundryOptionsPage(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Text(
+        title,
+        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(
+    String text,
+    IconData icon,
+    BuildContext context,
+    Widget page,
+  ) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Icon(icon, size: 30, color: Colors.redAccent),
+        title: Text(text, style: GoogleFonts.poppins(fontSize: 16)),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => page),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// Placeholder pages
+class AddAddressPage extends StatelessWidget {
+  const AddAddressPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Add Address")),
+      body: Center(child: Text("Add Address Page")),
+    );
+  }
+}
+
+class DeliveryPage extends StatelessWidget {
+  const DeliveryPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Dobi Nearby")),
+      body: Center(child: Text("Dobi Nearby Page")),
+    );
+  }
+}
+
+class PaymentPage extends StatelessWidget {
+  const PaymentPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Payment"),
+        backgroundColor: Colors.deepPurpleAccent,
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle("Select Payment Method"),
+            ...creditCards.map((card) => _buildCardTile(card, context)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Text(
+        title,
+        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildCardTile(String cardInfo, BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Icon(
+          Icons.credit_card,
+          size: 30,
+          color: Colors.deepPurpleAccent,
+        ),
+        title: Text(cardInfo, style: GoogleFonts.poppins(fontSize: 16)),
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Selected $cardInfo as Payment Method")),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class LaundryOptionsPage extends StatelessWidget {
+  const LaundryOptionsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "Laundry Options",
+          style: TextStyle(color: Colors.white), // Set title color to white
+        ),
+        backgroundColor: Colors.deepPurpleAccent,
+        iconTheme: IconThemeData(
+          color: Colors.white,
+        ), // Ensure back icon is white
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildOptionButton(context, "Washing only"),
+            _buildOptionButton(context, "Dry only"),
+            _buildOptionButton(context, "Washing and dry"),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionButton(BuildContext context, String option) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.pop(
+            context,
+            option,
+          ); // Returns selected option to previous page
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+          textStyle: GoogleFonts.poppins(fontSize: 18),
+        ),
+        child: Text(option),
+      ),
+    );
+  }
+}
+
+// Global list to store credit cards dynamically
+List<String> creditCards = [
+  "Visa ending in *1234",
+  "Mastercard ending in *5678",
+];
+
+class DobiPayScreen extends StatelessWidget {
+  const DobiPayScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "DobiPay",
+          style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.deepPurpleAccent,
+      ),
+      body: SingleChildScrollView(
+        // Enables scrolling
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionTitle("Balance"),
+              _buildBalanceCard("RM 150.00"),
+              _buildSectionTitle("Payment Methods"),
+              _buildInfoCard("Credit Card*1234", Icons.payment, context),
+              _buildSectionTitle("Transaction History"),
+              _buildTransactionRow(
+                "Laundry Payment",
+                "- RM 20.00",
+                "May 15, 2025",
+              ),
+              _buildTransactionRow("Dry Cleaning", "- RM 30.00", "May 5, 2025"),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Text(
+        title,
+        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildBalanceCard(String balance) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Icon(
+          Icons.account_balance_wallet,
+          size: 30,
+          color: Colors.deepPurpleAccent,
+        ),
+        title: Text(
+          "Available Balance",
+          style: GoogleFonts.poppins(fontSize: 16),
+        ),
+        subtitle: Text(
+          balance,
+          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(String text, IconData icon, BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Icon(icon, size: 30, color: Colors.deepPurpleAccent),
+        title: Text(text, style: GoogleFonts.poppins(fontSize: 16)),
+        onTap: () {
+          if (text.contains("Credit Card")) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ManageCardsScreen()),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildTransactionRow(String title, String amount, String date) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 5),
+      child: ListTile(
+        title: Text(title, style: GoogleFonts.poppins(fontSize: 16)),
+        subtitle: Text(
+          date,
+          style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
+        ),
+        trailing: Text(
+          amount,
+          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
+
+// New Page: Manage Credit Cards
+class ManageCardsScreen extends StatefulWidget {
+  const ManageCardsScreen({super.key});
+
+  @override
+  _ManageCardsScreenState createState() => _ManageCardsScreenState();
+}
+
+class _ManageCardsScreenState extends State<ManageCardsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Manage Cards"),
+        backgroundColor: Colors.deepPurpleAccent,
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            ...creditCards.map((card) => _buildCardTile(card)),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () async {
+                final newCard = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AddCardScreen()),
+                );
+                if (newCard != null) {
+                  setState(() {
+                    creditCards.add(newCard);
+                  });
+                }
+              },
+              child: Text("Add New Card"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardTile(String cardInfo) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Icon(
+          Icons.credit_card,
+          size: 30,
+          color: Colors.deepPurpleAccent,
+        ),
+        title: Text(cardInfo, style: GoogleFonts.poppins(fontSize: 16)),
+        trailing: IconButton(
+          icon: Icon(Icons.delete, color: Colors.redAccent),
+          onPressed: () {
+            setState(() {
+              creditCards.remove(cardInfo);
+            });
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class AddCardScreen extends StatelessWidget {
+  final TextEditingController _cardNumberController = TextEditingController();
+
+  AddCardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Add Card"),
+        backgroundColor: Colors.deepPurpleAccent,
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(
+              controller: _cardNumberController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(hintText: "Enter card number"),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                if (_cardNumberController.text.isNotEmpty) {
+                  Navigator.pop(
+                    context,
+                    "Card ending in *${_cardNumberController.text.substring(_cardNumberController.text.length - 4)}",
+                  );
+                }
+              },
+              child: Text("Save Card"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class Profile extends StatelessWidget {
+  const Profile({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "Profile",
+          style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.deepPurpleAccent,
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildProfileOption(Icons.settings, "Settings", () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SettingsPage()),
+              );
+            }),
+            _buildProfileOption(Icons.feedback, "Feedback", () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => FeedbackPage()),
+              );
+            }),
+            _buildProfileOption(Icons.logout, "Sign Out", () {
+              _showLogoutDialog(context);
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileOption(IconData icon, String title, VoidCallback onTap) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Icon(icon, size: 30, color: Colors.deepPurpleAccent),
+        title: Text(title, style: GoogleFonts.poppins(fontSize: 18)),
+        onTap: onTap, // Handles taps dynamically
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Sign Out"),
+          content: Text("Are you sure you want to sign out?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Return to previous screen
+                Navigator.pop(context); // Return to previous screen
+              },
+              child: Text("Sign Out"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  _SettingsPageState createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "Settings",
+          style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.deepPurpleAccent,
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildSettingsOption(
+              Icons.language,
+              "Language",
+              DropdownButton<String>(
+                value: "English",
+                onChanged: (newValue) {},
+                items: ["English", "Malay", "Chinese", "Tamil"]
+                    .map(
+                      (lang) =>
+                          DropdownMenuItem(value: lang, child: Text(lang)),
+                    )
+                    .toList(),
+              ),
+            ),
+            _buildSettingsOption(
+              Icons.dark_mode,
+              "Dark Mode",
+              Switch(
+                value: DobikuApp.isDarkMode.value,
+                onChanged: (value) {
+                  setState(() {
+                    DobikuApp.isDarkMode.value = value;
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsOption(
+    IconData icon,
+    String title,
+    Widget trailingWidget,
+  ) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Icon(icon, size: 30, color: Colors.deepPurpleAccent),
+        title: Text(title, style: GoogleFonts.poppins(fontSize: 18)),
+        trailing: trailingWidget,
+      ),
+    );
+  }
+}
+
+class FeedbackPage extends StatelessWidget {
+  const FeedbackPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "Feedback",
+          style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.deepPurpleAccent,
+        elevation: 0,
+      ),
+      body: Center(
+        child: Text("Feedback Page", style: GoogleFonts.poppins(fontSize: 18)),
+      ),
+    );
+  }
+}
